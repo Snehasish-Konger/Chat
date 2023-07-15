@@ -52,7 +52,7 @@ To get started with the project, follow these steps:
 4. Create a Firebase project and set up authentication and real-time database services.
 
 5. Configure Firebase in your project:
-   
+
    - Copy the `firebase.example.js` file and rename it to `firebase.js`.
    - Replace the placeholder values in `firebase.js` with your Firebase project's configuration values.
 
