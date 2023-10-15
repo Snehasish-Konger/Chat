@@ -66,7 +66,7 @@ To get started with the project, follow these steps:
 
 The project structure is organized as follows:
 
-```
+```text
 .
 ├── App.js
 ├── app.json
