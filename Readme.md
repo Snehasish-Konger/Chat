@@ -1,5 +1,3 @@
-Thank you for providing the repository link. Based on the provided repository, I have updated the `README.md` file for your Chat application. Here's the revised version:
-
 # Chat Application
 
 This is a chat application built using React Native, Firebase, and Expo. It allows users to create accounts, log in, and chat with other users in real-time.
