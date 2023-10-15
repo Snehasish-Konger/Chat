@@ -8,6 +8,7 @@ import { Entypo } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView } from "react-native-gesture-handler";
 import ChatList from "../components/ChatList";
+import { Tab } from "@rneui/base";
 const avatar = "https://i.pravatar.cc/300";
 
 const Home = () => {

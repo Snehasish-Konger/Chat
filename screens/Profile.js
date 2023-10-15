@@ -1,134 +1,140 @@
-import React, { useState, useEffect, useLayoutEffect } from "react";
-import { auth } from "../config/firebase";
-import { Avatar } from "@rneui/themed";
-import { signOut } from "firebase/auth";
-import { useNavigation } from "@react-navigation/native";
-import { AntDesign } from "@expo/vector-icons";
-import colors from "../colors";
+import { StatusBar } from "expo-status-bar";
+import React, { useContext, useEffect, useState } from "react";
 import {
-  StyleSheet,
+  View,
+  Text,
   TouchableOpacity,
   Image,
-  Text,
-  View,
   TextInput,
   Button,
 } from "react-native";
-import ImagePicker from "react-native-image-picker";
-const backImage = require("../assets/backImage.png");
+import Constants from "expo-constants";
+import GlobalContext from "../context/Context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { pickImage, askForPermission, uploadImage } from "../utils";
+import { auth, db } from "../config/firebase";
+import { updateProfile } from "@firebase/auth";
+import { doc, setDoc } from "@firebase/firestore";
+import { useNavigation } from "@react-navigation/native";
 
-const Profile = () => {
-  const [user, setUser] = useState(null);
-  const [displayName, setDisplayName] = useState(user?.displayName || "");
-  const [avatar, setAvatar] = useState(user?.photoURL || "");
-  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
+export default function Profile() {
+  const [displayName, setDisplayName] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [permissionStatus, setPermissionStatus] = useState(null);
   const navigation = useNavigation();
+  useEffect(() => {
+    (async () => {
+      const status = await askForPermission();
+      setPermissionStatus(status);
+    })();
+  }, []);
 
-  const onSignOut = () => {
-    signOut(auth).catch((error) => console.log("Error logging out: ", error));
-  };
+  const {
+    theme: { colors },
+  } = useContext(GlobalContext);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          style={{
-            marginRight: 10,
-          }}
-          onPress={onSignOut}
-        >
-          <AntDesign
-            name="logout"
-            size={24}
-            color={colors.gray}
-            style={{ marginRight: 10 }}
-          />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation]);
-
-  const handleImagePick = async () => {
-    ImagePicker.launchImageLibrary({ mediaType: "photo" }, (response) => {
-      if (!response.didCancel && response.uri) {
-        setAvatar(response.uri);
-        updateProfile();
-      }
-    });
-  };
-
-  const updateProfile = async () => {
-    const updateData = {
-      displayName,
-      photoURL: avatar,
-      phoneNumber,
-    };
-    try {
-      await auth.currentUser.updateProfile(updateData);
-      alert("Profile updated");
-    } catch (error) {
-      alert(error.message);
+  async function handlePress() {
+    const user = auth.currentUser;
+    let photoURL;
+    if (selectedImage) {
+      const { url } = await uploadImage(
+        selectedImage,
+        `images/${user.uid}`,
+        "profilePicture"
+      );
+      photoURL = url;
     }
-  };
+    const userData = {
+      displayName,
+      email: user.email,
+    };
+    if (photoURL) {
+      userData.photoURL = photoURL;
+    }
 
+    await Promise.all([
+      updateProfile(user, userData),
+      setDoc(doc(db, "users", user.uid), { ...userData, uid: user.uid }),
+    ]);
+    navigation.navigate("home");
+  }
+
+  async function handleProfilePicture() {
+    const result = await pickImage();
+    if (!result.cancelled) {
+      setSelectedImage(result.uri);
+    }
+  }
+
+  if (!permissionStatus) {
+    return <Text>Loading</Text>;
+  }
+  if (permissionStatus !== "granted") {
+    return <Text>You need to allow this permission</Text>;
+  }
   return (
-    <View style={styles.container}>
-      <Image source={backImage} style={styles.backImage} />
-      <View style={styles.whiteSheet} />
-      <TouchableOpacity onPress={handleImagePick}>
-        <Avatar
-          size={250}
-          rounded
-          source={{ uri: avatar || "https://i.pravatar.cc/300" }}
+    <React.Fragment>
+      <StatusBar style="auto" />
+      <View
+        style={{
+          alignItems: "center",
+          justifyContent: "center",
+          flex: 1,
+          paddingTop: Constants.statusBarHeight + 20,
+          padding: 20,
+        }}
+      >
+        <Text style={{ fontSize: 22, color: colors.foreground }}>
+          Profile Info
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.text, marginTop: 20 }}>
+          Please provide your name and an optional profile photo
+        </Text>
+        <TouchableOpacity
+          onPress={handleProfilePicture}
           style={{
-            width: 250,
-            height: 250,
-            bottom: 100,
-            boxShadow: "10px 10px 10px 0px rgba(0,0,0,0.5)",
+            marginTop: 30,
+            borderRadius: 120,
+            width: 120,
+            height: 120,
+            backgroundColor: colors.background,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {!selectedImage ? (
+            <MaterialCommunityIcons
+              name="camera-plus"
+              color={colors.iconGray}
+              size={45}
+            />
+          ) : (
+            <Image
+              source={{ uri: selectedImage }}
+              style={{ width: "100%", height: "100%", borderRadius: 120 }}
+            />
+          )}
+        </TouchableOpacity>
+        <TextInput
+          placeholder="Type your name"
+          value={displayName}
+          onChangeText={setDisplayName}
+          style={{
+            borderBottomColor: colors.primary,
+            marginTop: 40,
+            borderBottomWidth: 2,
+            width: "100%",
           }}
         />
-      </TouchableOpacity>
-
-      <TextInput
-        placeholder="Display Name"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
-      <TextInput
-        placeholder="Phone Number"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-      />
-      <Button title="Update Profile" onPress={updateProfile} />
-    </View>
+        <View style={{ marginTop: "auto", width: 80 }}>
+          <Button
+            title="Next"
+            color={colors.secondary}
+            onPress={handlePress}
+            disabled={!displayName}
+          />
+        </View>
+      </View>
+    </React.Fragment>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  backImage: {
-    width: "100%",
-    height: 340,
-    position: "absolute",
-    top: 0,
-    resizeMode: "cover",
-  },
-  whiteSheet: {
-    width: "100%",
-    height: "75%",
-    position: "absolute",
-    bottom: 0,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 60,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-});
-
-export default Profile;
+}
